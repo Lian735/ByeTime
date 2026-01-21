@@ -9,9 +9,13 @@ import SwiftUI
 
 @main
 struct ByeTimeApp: App {
+    @StateObject private var timerManager = SleepTimerManager()
+
     var body: some Scene {
-        WindowGroup {
+        MenuBarExtra("ByeTime", systemImage: timerManager.isRunning ? "moon.zzz.fill" : "moon.zzz") {
             ContentView()
+                .environmentObject(timerManager)
         }
+        .menuBarExtraStyle(.window)
     }
 }
