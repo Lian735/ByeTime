@@ -7,18 +7,21 @@
 
 import SwiftUI
 import AppKit
+import Combine
 
 struct ContentView: View {
     @EnvironmentObject private var timerManager: SleepTimerManager
     @State private var hours: Int = 0
     @State private var minutes: Int = 30
     @State private var startedTotalSeconds: Int? = nil
-    @State private var targetTime: Date = Calendar.current.date(byAdding: .minute, value: 1, to: Date()) ?? Date()
+    @State private var targetTime: Date = Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ?? Date()
+    @State private var tick: Int = 0
     @AppStorage("presetOneMinutes") private var presetOneMinutes: Int = 15
     @AppStorage("presetTwoMinutes") private var presetTwoMinutes: Int = 30
     @AppStorage("presetThreeMinutes") private var presetThreeMinutes: Int = 60
     @AppStorage("showSleepTime") private var showSleepTime: Bool = true
     @AppStorage("timerMode") private var timerModeRaw: String = TimerMode.duration.rawValue
+    private let ticker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(spacing: 16) {
@@ -26,12 +29,19 @@ struct ContentView: View {
             countdownCard
             modePicker
             if !timerManager.isRunning {
-                if timerMode == .duration {
-                    durationControls
-                    presetButtons
-                } else {
-                    targetTimeControls
+                Group {
+                    if timerMode == .duration {
+                        VStack(spacing: 8) {
+                            durationControls
+                            presetButtons
+                        }
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    } else {
+                        targetTimeControls
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
                 }
+                .animation(.bouncy, value: timerModeRaw)
             } else {
                 progressBar
             }
@@ -52,7 +62,14 @@ struct ContentView: View {
         .onChange(of: targetTime) { _, _ in
             ensureTargetTimeAtLeastNextMinute()
         }
+        .onReceive(ticker) { _ in
+            // Drive view updates once per second so target-time countdown refreshes automatically
+            if !timerManager.isRunning || timerMode == .targetTime {
+                tick &+= 1 // wraps on overflow, safe for a simple tick counter
+            }
+        }
         .animation(.bouncy, value: timerManager.isRunning)
+        .animation(.bouncy, value: timerModeRaw)
     }
 
     private var header: some View {
@@ -77,18 +94,29 @@ struct ContentView: View {
     private var countdownCard: some View {
         VStack(spacing: 8) {
             Text(timerManager.isRunning ? "Remaining" : "Ready")
-                .font(.footnote)
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(.secondary)
             Text(timerManager.isRunning ? timerManager.remainingFormatted : formattedDuration)
                 .font(.system(size: 34, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .contentTransition(.numericText())
                 .animation(.easeInOut(duration: 0.2), value: timerManager.remainingSeconds)
-                .animation(.easeInOut(duration: 0.2), value: formattedDuration)
+                .animation(.easeInOut(duration: 0.2), value: tick)
+                .animation(.easeInOut(duration: 0.2), value: hours)
+                .animation(.easeInOut(duration: 0.2), value: minutes)
+
             if showSleepTime, let endDate = timerManager.endDate {
                 Text("Sleep at \(endDate.formatted(date: .omitted, time: .shortened))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+            if timerMode.title == "Target time" {
+                if !timerManager.isRunning {
+                    Text("⚠️ Timer has not started yet!")
+                        .lineLimit(2)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .padding(14)
@@ -97,27 +125,38 @@ struct ContentView: View {
     }
 
     private var modePicker: some View {
-        Picker("Timer mode", selection: $timerModeRaw) {
-            ForEach(TimerMode.allCases) { mode in
-                Text(mode.title).tag(mode.rawValue)
+        HStack {
+            Picker("Timer mode:", selection: $timerModeRaw) {
+                ForEach(TimerMode.allCases) { mode in
+                    Text(mode.title).tag(mode.rawValue)
+                }
             }
+            .pickerStyle(.segmented)
+            .disabled(timerManager.isRunning)
+            .font(.body.weight(.semibold))
+            .foregroundStyle(.primary)
+            Spacer()
         }
-        .pickerStyle(.segmented)
-        .disabled(timerManager.isRunning)
     }
 
     private var durationControls: some View {
         HStack {
             VStack(alignment: .leading, spacing: 12) {
                 Stepper(value: $hours, in: 0...12) {
-                    Text("Hours: \(hours)")
-                        .contentTransition(.numericText())
-                        .animation(.easeInOut(duration: 0.2), value: hours)
+                    (
+                        Text("Hours: ").foregroundStyle(.secondary) +
+                        Text("\(hours)").foregroundStyle(.primary)
+                    )
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.2), value: hours)
                 }
                 Stepper {
-                    Text("Minutes: \(minutes)")
-                        .contentTransition(.numericText())
-                        .animation(.easeInOut(duration: 0.2), value: minutes)
+                    (
+                        Text("Minutes: ").foregroundStyle(.secondary) +
+                        Text("\(minutes)").foregroundStyle(.primary)
+                    )
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.2), value: minutes)
                 } onIncrement: {
                     let next = minutes + 5
                     if next >= 60 {
@@ -136,17 +175,31 @@ struct ContentView: View {
                     }
                 }
             }
+            .font(.body.weight(.semibold))
+            .foregroundStyle(.secondary)
             Spacer()
         }
     }
 
     private var targetTimeControls: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Target time")
-                .font(.subheadline.weight(.semibold))
+            DatePicker("Target time", selection: $targetTime, displayedComponents: .hourAndMinute)
+                .font(.body.weight(.semibold))
                 .foregroundStyle(.secondary)
-            DatePicker("", selection: $targetTime, displayedComponents: .hourAndMinute)
-                .labelsHidden()
+                .datePickerStyle(.compact)
+                .onChange(of: targetTime) { _, newValue in
+                    let now = Date()
+                    let calendar = Calendar.current
+                    let minimumDate = calendar.date(byAdding: .minute, value: 1, to: now) ?? now
+                    let maximumDate = calendar.date(byAdding: .minute, value: 12 * 60 + 55, to: now) ?? now
+                    if newValue < minimumDate {
+                        targetTime = minimumDate
+                    } else if newValue > maximumDate {
+                        targetTime = maximumDate
+                    }
+                }
+                .contentTransition(.numericText())
+                .animation(.easeInOut(duration: 0.2), value: targetTime)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -254,9 +307,14 @@ struct ContentView: View {
 
     private func ensureTargetTimeAtLeastNextMinute() {
         guard timerMode == .targetTime else { return }
-        let minimumDate = Calendar.current.date(byAdding: .minute, value: 1, to: Date()) ?? Date()
+        let now = Date()
+        let calendar = Calendar.current
+        let minimumDate = calendar.date(byAdding: .minute, value: 1, to: now) ?? now
+        let maximumDate = calendar.date(byAdding: .minute, value: 12 * 60 + 55, to: now) ?? now
         if targetTime < minimumDate {
             targetTime = minimumDate
+        } else if targetTime > maximumDate {
+            targetTime = maximumDate
         }
     }
 }
@@ -281,3 +339,4 @@ private enum TimerMode: String, CaseIterable, Identifiable {
     ContentView()
         .environmentObject(SleepTimerManager())
 }
+

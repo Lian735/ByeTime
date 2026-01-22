@@ -23,6 +23,7 @@ struct ByeTimeApp: App {
             SettingsView()
                 .environmentObject(timerManager)
         }
+        .defaultSize(width: 520, height: 420)
     }
 }
 
