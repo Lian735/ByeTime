@@ -126,6 +126,7 @@ struct SettingsView: View {
                 }
             }
             .padding(16)
+            .frame(width: 360)
         }
     }
 
