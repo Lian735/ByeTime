@@ -14,7 +14,7 @@ ByeTime is a lightweight macOS menu-bar sleep timer. Set a duration or pick a ta
 
 ## Requirements
 
-- macOS 26.2+ (Tahoe)
+- macOS 26.0+ (Tahoe)
 
 ## Installation
 
