@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Combine
 import os
 
 final class SleepTimerManager: ObservableObject {
@@ -21,7 +22,7 @@ final class SleepTimerManager: ObservableObject {
         stop()
         let endDate = Date().addingTimeInterval(TimeInterval(durationSeconds))
         self.endDate = endDate
-        remainingSeconds = durationSeconds
+        remainingSeconds = Int(ceil(endDate.timeIntervalSinceNow))
         isRunning = true
 
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
@@ -51,7 +52,7 @@ final class SleepTimerManager: ObservableObject {
 
     private func tick() {
         guard let endDate else { return }
-        let remaining = Int(endDate.timeIntervalSinceNow.rounded(.down))
+        let remaining = Int(ceil(endDate.timeIntervalSinceNow))
         if remaining <= 0 {
             stop()
             triggerSleep()

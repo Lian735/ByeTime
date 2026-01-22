@@ -6,16 +6,25 @@
 //
 
 import SwiftUI
+import AppKit
 
 @main
 struct ByeTimeApp: App {
-    @StateObject private var timerManager = SleepTimerManager()
+    @StateObject private var timerManager: SleepTimerManager
+    private var statusBarController: StatusBarController!
+
+    init() {
+        _timerManager = StateObject(wrappedValue: SleepTimerManager())
+        statusBarController = StatusBarController(timerManager: _timerManager.wrappedValue)
+    }
 
     var body: some Scene {
-        MenuBarExtra("ByeTime", systemImage: timerManager.isRunning ? "moon.zzz.fill" : "moon.zzz") {
-            ContentView()
-                .environmentObject(timerManager)
+        WindowGroup {
+            EmptyView()
         }
-        .menuBarExtraStyle(.window)
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .defaultSize(width: 1, height: 1)
+        .handlesExternalEvents(matching: Set(arrayLiteral: "*"))
     }
 }

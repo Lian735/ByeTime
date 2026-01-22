@@ -12,28 +12,48 @@ struct ContentView: View {
     @EnvironmentObject private var timerManager: SleepTimerManager
     @State private var hours: Int = 0
     @State private var minutes: Int = 30
+    @State private var startedTotalSeconds: Int? = nil
 
     var body: some View {
         VStack(spacing: 16) {
             header
             countdownCard
-            durationControls
-            presetButtons
+            if !timerManager.isRunning {
+                durationControls
+                presetButtons
+            } else {
+                progressBar
+            }
             actionButtons
         }
-        .padding(20)
         .frame(width: 280)
+        .padding()
+        .onChange(of: timerManager.isRunning) { oldValue, newValue in
+            if newValue == false {
+                withAnimation(.easeInOut) {
+                    startedTotalSeconds = nil
+                }
+            }
+        }
+        .animation(.bouncy, value: timerManager.isRunning)
     }
 
     private var header: some View {
         VStack(spacing: 6) {
-            Text("ByeTime")
-                .font(.title2)
-                .fontWeight(.semibold)
-            Text("Mac goes to sleep after your timer ends")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+            HStack(alignment: .center, spacing: 12) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 28, height: 28)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("ByeTime")
+                        .font(.headline)
+                }
+
+                Spacer()
+            }
         }
     }
 
@@ -45,6 +65,9 @@ struct ContentView: View {
             Text(timerManager.isRunning ? timerManager.remainingFormatted : formattedDuration)
                 .font(.system(size: 34, weight: .semibold, design: .rounded))
                 .monospacedDigit()
+                .contentTransition(.numericText())
+                .animation(.easeInOut(duration: 0.2), value: timerManager.remainingSeconds)
+                .animation(.easeInOut(duration: 0.2), value: formattedDuration)
             if let endDate = timerManager.endDate {
                 Text("Sleep at \(endDate.formatted(date: .omitted, time: .shortened))")
                     .font(.caption)
@@ -53,19 +76,36 @@ struct ContentView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.primary.opacity(0.06))
-        )
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private var durationControls: some View {
         VStack(spacing: 12) {
             Stepper(value: $hours, in: 0...12) {
                 Text("Hours: \(hours)")
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.2), value: hours)
             }
-            Stepper(value: $minutes, in: 0...59, step: 5) {
+            Stepper {
                 Text("Minutes: \(minutes)")
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.2), value: minutes)
+            } onIncrement: {
+                let next = minutes + 5
+                if next >= 60 {
+                    minutes = 0
+                    if hours < 12 { hours += 1 }
+                } else {
+                    minutes = next
+                }
+            } onDecrement: {
+                let prev = minutes - 5
+                if prev < 0 {
+                    if hours > 0 { hours -= 1 }
+                    minutes = 55
+                } else {
+                    minutes = prev
+                }
             }
         }
     }
@@ -78,32 +118,43 @@ struct ContentView: View {
         }
     }
 
+    private var progressBar: some View {
+        let total = startedTotalSeconds ?? totalSeconds
+        let remaining = timerManager.remainingSeconds
+        let progress = total > 0 ? Double(remaining) / Double(total) : 0
+        return ProgressView(value: progress)
+            .progressViewStyle(.linear)
+            .tint(.green)
+            .frame(maxWidth: .infinity)
+    }
+
     private var actionButtons: some View {
         VStack(spacing: 10) {
             Button {
-                timerManager.start(durationSeconds: totalSeconds)
+                withAnimation(.easeInOut) {
+                    if timerManager.isRunning {
+                        timerManager.stop()
+                        startedTotalSeconds = nil
+                    } else {
+                        timerManager.start(durationSeconds: totalSeconds)
+                        startedTotalSeconds = totalSeconds
+                    }
+                }
             } label: {
-                Text(timerManager.isRunning ? "Restart Timer" : "Start Timer")
+                Text(timerManager.isRunning ? "Stop" : "Start Timer")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(totalSeconds == 0)
-
-            Button {
-                timerManager.stop()
-            } label: {
-                Text("Stop")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .disabled(!timerManager.isRunning)
-
+            .buttonStyle(.glassProminent)
+            .disabled(!timerManager.isRunning && totalSeconds == 0)
+            
             Divider()
 
             Button("Quit ByeTime") {
                 NSApplication.shared.terminate(nil)
             }
             .keyboardShortcut("q")
+            .buttonStyle(.glassProminent)
+            .tint(.red.opacity(0.5))
         }
     }
 
@@ -112,7 +163,7 @@ struct ContentView: View {
             hours = minutes / 60
             self.minutes = minutes % 60
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.glass)
     }
 
     private var totalSeconds: Int {
@@ -120,13 +171,11 @@ struct ContentView: View {
     }
 
     private var formattedDuration: String {
-        let totalMinutes = totalSeconds / 60
-        let displayHours = totalMinutes / 60
-        let displayMinutes = totalMinutes % 60
-        if displayHours > 0 {
-            return String(format: "%02d:%02d", displayHours, displayMinutes)
-        }
-        return String(format: "%02d:%02d", displayMinutes, 0)
+        let total = totalSeconds
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let seconds = total % 60
+        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
 }
 
