@@ -51,8 +51,8 @@ struct SettingsView: View {
                 Divider()
 
                 HStack(spacing: 8) {
-                    Image(systemName: "gearshape.fill")
-                        .foregroundStyle(.secondary)
+                    Image(systemName: "gear.badge.checkmark")
+                        .foregroundStyle(.green.opacity(0.85))
                     Text("Settings are saved automatically")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
@@ -64,13 +64,22 @@ struct SettingsView: View {
                         .fill(.ultraThinMaterial)
                         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
                 )
+                HStack {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Presets").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                        
+                        presetStepper(title: "Preset 1", value: $presetOneMinutes)
+                            .contentTransition(.numericText())
+                            .animation(.easeInOut(duration: 0.2), value: presetOneMinutes)
+                        presetStepper(title: "Preset 2", value: $presetTwoMinutes)
+                            .contentTransition(.numericText())
+                            .animation(.easeInOut(duration: 0.2), value: presetTwoMinutes)
+                        presetStepper(title: "Preset 3", value: $presetThreeMinutes)
+                            .contentTransition(.numericText())
+                            .animation(.easeInOut(duration: 0.2), value: presetThreeMinutes)
+                    }
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Presets").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-
-                    presetStepper(title: "Preset 1", value: $presetOneMinutes)
-                    presetStepper(title: "Preset 2", value: $presetTwoMinutes)
-                    presetStepper(title: "Preset 3", value: $presetThreeMinutes)
+                    Spacer()
                 }
                 .padding(10)
                 .background(
@@ -82,11 +91,10 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Display").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
 
-                    Toggle("Show sleep time hint", isOn: $showSleepTime)
-
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            Text("Menu bar animation")
+                            Toggle("Show sleep time hint", isOn: $showSleepTime)
+                                .toggleStyle(.checkbox)
                             Spacer()
                         }
                         Picker("Menu bar animation", selection: $menuBarAnimationStyleRaw) {

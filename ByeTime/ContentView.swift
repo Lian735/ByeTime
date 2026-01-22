@@ -84,33 +84,36 @@ struct ContentView: View {
     }
 
     private var durationControls: some View {
-        VStack(spacing: 12) {
-            Stepper(value: $hours, in: 0...12) {
-                Text("Hours: \(hours)")
-                    .contentTransition(.numericText())
-                    .animation(.easeInOut(duration: 0.2), value: hours)
-            }
-            Stepper {
-                Text("Minutes: \(minutes)")
-                    .contentTransition(.numericText())
-                    .animation(.easeInOut(duration: 0.2), value: minutes)
-            } onIncrement: {
-                let next = minutes + 5
-                if next >= 60 {
-                    minutes = 0
-                    if hours < 12 { hours += 1 }
-                } else {
-                    minutes = next
+        HStack {
+            VStack(alignment: .leading, spacing: 12) {
+                Stepper(value: $hours, in: 0...12) {
+                    Text("Hours: \(hours)")
+                        .contentTransition(.numericText())
+                        .animation(.easeInOut(duration: 0.2), value: hours)
                 }
-            } onDecrement: {
-                let prev = minutes - 5
-                if prev < 0 {
-                    if hours > 0 { hours -= 1 }
-                    minutes = 55
-                } else {
-                    minutes = prev
+                Stepper {
+                    Text("Minutes: \(minutes)")
+                        .contentTransition(.numericText())
+                        .animation(.easeInOut(duration: 0.2), value: minutes)
+                } onIncrement: {
+                    let next = minutes + 5
+                    if next >= 60 {
+                        minutes = 0
+                        if hours < 12 { hours += 1 }
+                    } else {
+                        minutes = next
+                    }
+                } onDecrement: {
+                    let prev = minutes - 5
+                    if prev < 0 {
+                        if hours > 0 { hours -= 1 }
+                        minutes = 55
+                    } else {
+                        minutes = prev
+                    }
                 }
             }
+            Spacer()
         }
     }
 
@@ -152,19 +155,24 @@ struct ContentView: View {
             .disabled(!timerManager.isRunning && totalSeconds == 0)
             
             Divider()
-
-            SettingsLink {
-                Text("Settings")
-                    .frame(maxWidth: .infinity)
+            
+            HStack {
+                SettingsLink {
+                    Label("Open Settings", systemImage: "gear")
+                }
+                .buttonStyle(.glassProminent)
+                .tint(.gray.opacity(0.5))
+                .keyboardShortcut("s")
+                
+                Spacer()
+                
+                Button("Quit") {
+                    NSApplication.shared.terminate(nil)
+                }
+                .keyboardShortcut("q")
+                .buttonStyle(.glassProminent)
+                .tint(.red.opacity(0.5))
             }
-            .buttonStyle(.glass)
-
-            Button("Quit ByeTime") {
-                NSApplication.shared.terminate(nil)
-            }
-            .keyboardShortcut("q")
-            .buttonStyle(.glassProminent)
-            .tint(.red.opacity(0.5))
         }
     }
 
