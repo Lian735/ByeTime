@@ -12,6 +12,7 @@ import AppKit
 struct ByeTimeApp: App {
     @StateObject private var timerManager: SleepTimerManager
     private var statusBarController: StatusBarController!
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     init() {
         _timerManager = StateObject(wrappedValue: SleepTimerManager())
@@ -19,12 +20,14 @@ struct ByeTimeApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
-            EmptyView()
+        Settings {
+            SettingsView()
         }
-        .windowStyle(.hiddenTitleBar)
-        .windowResizability(.contentSize)
-        .defaultSize(width: 1, height: 1)
-        .handlesExternalEvents(matching: Set(arrayLiteral: "*"))
+    }
+}
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
     }
 }
