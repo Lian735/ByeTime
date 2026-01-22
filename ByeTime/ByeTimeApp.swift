@@ -10,18 +10,18 @@ import AppKit
 
 @main
 struct ByeTimeApp: App {
-    @StateObject private var timerManager: SleepTimerManager
+    private let timerManager = SleepTimerManager()
     private var statusBarController: StatusBarController!
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     init() {
-        _timerManager = StateObject(wrappedValue: SleepTimerManager())
-        statusBarController = StatusBarController(timerManager: _timerManager.wrappedValue)
+        statusBarController = StatusBarController(timerManager: timerManager)
     }
 
     var body: some Scene {
         Settings {
             SettingsView()
+                .environmentObject(timerManager)
         }
     }
 }

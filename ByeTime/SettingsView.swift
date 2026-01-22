@@ -24,6 +24,17 @@ struct SettingsView: View {
             Section("Display") {
                 Toggle("Show sleep time hint", isOn: $showSleepTime)
             }
+            HStack {
+                Link(destination: URL(string: "https://www.moysoft.com")!) {
+                    Image("moysoftfull")
+                        .resizable()
+                        .interpolation(.high)      // aktiviert weiches Blending
+                        .antialiased(true)         // glättet Kanten
+                        .scaledToFit()
+                        .frame(height: 25)
+                }
+                Spacer()
+            }
         }
         .formStyle(.grouped)
         .frame(width: 320)
