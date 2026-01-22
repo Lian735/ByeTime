@@ -13,18 +13,25 @@ struct ContentView: View {
     @State private var hours: Int = 0
     @State private var minutes: Int = 30
     @State private var startedTotalSeconds: Int? = nil
+    @State private var targetTime: Date = Calendar.current.date(byAdding: .minute, value: 1, to: Date()) ?? Date()
     @AppStorage("presetOneMinutes") private var presetOneMinutes: Int = 15
     @AppStorage("presetTwoMinutes") private var presetTwoMinutes: Int = 30
     @AppStorage("presetThreeMinutes") private var presetThreeMinutes: Int = 60
     @AppStorage("showSleepTime") private var showSleepTime: Bool = true
+    @AppStorage("timerMode") private var timerModeRaw: String = TimerMode.duration.rawValue
 
     var body: some View {
         VStack(spacing: 16) {
             header
             countdownCard
+            modePicker
             if !timerManager.isRunning {
-                durationControls
-                presetButtons
+                if timerMode == .duration {
+                    durationControls
+                    presetButtons
+                } else {
+                    targetTimeControls
+                }
             } else {
                 progressBar
             }
@@ -38,6 +45,12 @@ struct ContentView: View {
                     startedTotalSeconds = nil
                 }
             }
+        }
+        .onChange(of: timerModeRaw) { _, _ in
+            ensureTargetTimeAtLeastNextMinute()
+        }
+        .onChange(of: targetTime) { _, _ in
+            ensureTargetTimeAtLeastNextMinute()
         }
         .animation(.bouncy, value: timerManager.isRunning)
     }
@@ -83,6 +96,16 @@ struct ContentView: View {
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
     }
 
+    private var modePicker: some View {
+        Picker("Timer mode", selection: $timerModeRaw) {
+            ForEach(TimerMode.allCases) { mode in
+                Text(mode.title).tag(mode.rawValue)
+            }
+        }
+        .pickerStyle(.segmented)
+        .disabled(timerManager.isRunning)
+    }
+
     private var durationControls: some View {
         HStack {
             VStack(alignment: .leading, spacing: 12) {
@@ -117,6 +140,17 @@ struct ContentView: View {
         }
     }
 
+    private var targetTimeControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Target time")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            DatePicker("", selection: $targetTime, displayedComponents: .hourAndMinute)
+                .labelsHidden()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private var presetButtons: some View {
         HStack(spacing: 8) {
             presetButton(label: "\(presetOneMinutes)m", minutes: presetOneMinutes)
@@ -143,8 +177,9 @@ struct ContentView: View {
                         timerManager.stop()
                         startedTotalSeconds = nil
                     } else {
-                        timerManager.start(durationSeconds: totalSeconds)
-                        startedTotalSeconds = totalSeconds
+                        let duration = totalSeconds
+                        timerManager.start(durationSeconds: duration)
+                        startedTotalSeconds = duration
                     }
                 }
             } label: {
@@ -185,7 +220,23 @@ struct ContentView: View {
     }
 
     private var totalSeconds: Int {
-        (hours * 3600) + (minutes * 60)
+        switch timerMode {
+        case .duration:
+            return (hours * 3600) + (minutes * 60)
+        case .targetTime:
+            return targetTimeSeconds
+        }
+    }
+
+    private var targetTimeSeconds: Int {
+        let now = Date()
+        let calendar = Calendar.current
+        var target = targetTime
+        if target <= now {
+            target = calendar.date(byAdding: .day, value: 1, to: target) ?? target
+        }
+        let remaining = Int(ceil(target.timeIntervalSince(now)))
+        return max(remaining, 60)
     }
 
     private var formattedDuration: String {
@@ -194,6 +245,35 @@ struct ContentView: View {
         let minutes = (total % 3600) / 60
         let seconds = total % 60
         return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+    }
+
+    private var timerMode: TimerMode {
+        get { TimerMode(rawValue: timerModeRaw) ?? .duration }
+        set { timerModeRaw = newValue.rawValue }
+    }
+
+    private func ensureTargetTimeAtLeastNextMinute() {
+        guard timerMode == .targetTime else { return }
+        let minimumDate = Calendar.current.date(byAdding: .minute, value: 1, to: Date()) ?? Date()
+        if targetTime < minimumDate {
+            targetTime = minimumDate
+        }
+    }
+}
+
+private enum TimerMode: String, CaseIterable, Identifiable {
+    case duration
+    case targetTime
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .duration:
+            return "Duration"
+        case .targetTime:
+            return "Target time"
+        }
     }
 }
 
