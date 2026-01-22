@@ -13,6 +13,10 @@ struct ContentView: View {
     @State private var hours: Int = 0
     @State private var minutes: Int = 30
     @State private var startedTotalSeconds: Int? = nil
+    @AppStorage("presetOneMinutes") private var presetOneMinutes: Int = 15
+    @AppStorage("presetTwoMinutes") private var presetTwoMinutes: Int = 30
+    @AppStorage("presetThreeMinutes") private var presetThreeMinutes: Int = 60
+    @AppStorage("showSleepTime") private var showSleepTime: Bool = true
 
     var body: some View {
         VStack(spacing: 16) {
@@ -68,7 +72,7 @@ struct ContentView: View {
                 .contentTransition(.numericText())
                 .animation(.easeInOut(duration: 0.2), value: timerManager.remainingSeconds)
                 .animation(.easeInOut(duration: 0.2), value: formattedDuration)
-            if let endDate = timerManager.endDate {
+            if showSleepTime, let endDate = timerManager.endDate {
                 Text("Sleep at \(endDate.formatted(date: .omitted, time: .shortened))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -112,9 +116,9 @@ struct ContentView: View {
 
     private var presetButtons: some View {
         HStack(spacing: 8) {
-            presetButton(label: "15m", minutes: 15)
-            presetButton(label: "30m", minutes: 30)
-            presetButton(label: "60m", minutes: 60)
+            presetButton(label: "\(presetOneMinutes)m", minutes: presetOneMinutes)
+            presetButton(label: "\(presetTwoMinutes)m", minutes: presetTwoMinutes)
+            presetButton(label: "\(presetThreeMinutes)m", minutes: presetThreeMinutes)
         }
     }
 
@@ -148,6 +152,12 @@ struct ContentView: View {
             .disabled(!timerManager.isRunning && totalSeconds == 0)
             
             Divider()
+
+            SettingsLink {
+                Text("Settings")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.glass)
 
             Button("Quit ByeTime") {
                 NSApplication.shared.terminate(nil)
